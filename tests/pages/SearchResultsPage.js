@@ -10,11 +10,9 @@ export class SearchResultsPage {
    */
   constructor(page) {
     this.page = page;
-    // Locators for price filter
-    this.minPriceInput = this.page.getByPlaceholder('Min');
-    this.maxPriceInput = this.page.getByPlaceholder('Max');
-    this.priceFilterButton = this.page.getByRole('button', { name: /^ok$/i });
-
+    // Locators for price filter - using more flexible selectors
+    this.priceSection = this.page.locator('text="Price"').first();
+    
     // Store multiple locators so we can fall back if the primary selector stops matching.
     this.productSelectors = [
       '[data-qa-locator="product-item"]',
@@ -24,8 +22,8 @@ export class SearchResultsPage {
     ];
     this.noResultsBanner = this.page.locator('[data-qa-locator="general-products-empty"], text=/no results/i');
 
-  this.brandSearchInput = this.page.locator('[placeholder="Search in Brand"], [placeholder="Search in brands"], [placeholder="Search brand"]');
-  this.brandFilterOptions = this.page.locator('[data-qa-locator="filter-option"], label:has(input[type="checkbox"]), a:has(input[type="checkbox"])');
+    this.brandSearchInput = this.page.locator('[placeholder="Search in Brand"], [placeholder="Search in brands"], [placeholder="Search brand"]');
+    this.brandFilterOptions = this.page.locator('[data-qa-locator="filter-option"], label:has(input[type="checkbox"]), a:has(input[type="checkbox"])');
   }
 
   /**
@@ -120,10 +118,41 @@ export class SearchResultsPage {
    * @param {string} max
    */
   async applyPriceFilter(min, max) {
-    await this.minPriceInput.fill(min);
-    await this.maxPriceInput.fill(max);
-    await expect(this.priceFilterButton).toBeEnabled({ timeout: 10000 });
-    await this.priceFilterButton.click();
+    // Scroll to the price filter section
+    const priceSection = this.page.locator('text="Price"').first();
+    await priceSection.scrollIntoViewIfNeeded().catch(() => {});
+    await this.page.waitForTimeout(500);
+
+    // Find price inputs more flexibly
+    const allNumberInputs = await this.page.locator('input[type="number"], input.ant-input-number-input').all();
+    
+    if (allNumberInputs.length >= 2) {
+      const minInput = allNumberInputs[allNumberInputs.length - 2]; // Second to last
+      const maxInput = allNumberInputs[allNumberInputs.length - 1]; // Last
+      
+      // Clear and fill the price inputs
+      await minInput.clear().catch(() => {});
+      await minInput.fill(min);
+      await this.page.waitForTimeout(300);
+      
+      await maxInput.clear().catch(() => {});
+      await maxInput.fill(max);
+      await this.page.waitForTimeout(300);
+
+      // Press Enter on the max input to apply the filter
+      await maxInput.press('Enter');
+    } else {
+      // Fallback: try by placeholder
+      const minInput = this.page.locator('[placeholder="Min"]').first();
+      const maxInput = this.page.locator('[placeholder="Max"]').first();
+      
+      await minInput.fill(min);
+      await this.page.waitForTimeout(300);
+      await maxInput.fill(max);
+      await this.page.waitForTimeout(300);
+      await maxInput.press('Enter');
+    }
+
     await this.waitForNetworkIdle();
     await this.waitForResults();
   }
@@ -165,7 +194,12 @@ export class SearchResultsPage {
   }
 
   async waitForResults() {
-    await this.page.waitForLoadState('domcontentloaded');
+    // Try to wait for load state but don't fail if it times out
+    try {
+      await this.page.waitForLoadState('domcontentloaded', { timeout: 10000 });
+    } catch (error) {
+      console.log('Note: Page load state timeout, checking for products anyway...');
+    }
 
     const startTime = Date.now();
     const timeout = 30000;

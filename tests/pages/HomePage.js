@@ -24,7 +24,19 @@ export class HomePage {
    * Task 2: Navigate to Daraz.pk
    */
   async navigate() {
-    await this.page.goto('https://www.daraz.pk/', { waitUntil: 'domcontentloaded' });
+    try {
+      await this.page.goto('https://www.daraz.pk/', { 
+        waitUntil: 'domcontentloaded',
+        timeout: 60000 // 60 seconds timeout
+      });
+    } catch (error) {
+      console.log('First navigation attempt failed, retrying...');
+      // Retry once more
+      await this.page.goto('https://www.daraz.pk/', { 
+        waitUntil: 'networkidle',
+        timeout: 60000
+      });
+    }
     await this.ensureReady();
   }
 
@@ -35,21 +47,27 @@ export class HomePage {
   async search(item) {
     await this.ensureReady();
     await this.searchBox.fill(item);
+    await this.page.waitForTimeout(500);
+    
     const trigger = await this.findVisibleSearchTrigger();
-    const navigationPromise = this.page.waitForNavigation({ waitUntil: 'domcontentloaded' }).catch(() => {});
 
+    // Click search button or press Enter
     if (trigger) {
-      await Promise.all([
-        navigationPromise,
-        trigger.click(),
-      ]);
+      await trigger.click();
     } else {
-      await Promise.all([
-        navigationPromise,
-        this.searchBox.press('Enter'),
-      ]);
+      await this.searchBox.press('Enter');
     }
-    await this.page.waitForLoadState('domcontentloaded');
+    
+    // Wait for URL to change (indicates navigation happened)
+    try {
+      await this.page.waitForURL('**/catalog/**', { timeout: 15000 });
+      console.log('✓ Search URL loaded');
+    } catch (error) {
+      console.log('Note: URL did not change to expected pattern, continuing...');
+    }
+    
+    // Give page time to load content
+    await this.page.waitForTimeout(2000);
   }
 
   async ensureReady() {

@@ -1,15 +1,30 @@
 {
   "name": "daraz-automation-assignment",
   "version": "1.0.0",
-  "description": "",
+  "description": "Automated functional testing on Daraz.pk using Playwright with Page Object Model",
   "main": "index.js",
-  "scripts": {},
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:chromium": "playwright test --project=chromium",
+    "test:firefox": "playwright test --project=firefox",
+    "test:webkit": "playwright test --project=webkit",
+    "test:assignment": "playwright test tests/daraz-assignment.spec.js",
+    "report": "playwright show-report"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/mt08081/daraz-automation-assignment.git"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "playwright",
+    "automation",
+    "testing",
+    "daraz",
+    "e2e",
+    "pom"
+  ],
+  "author": "Muhammad Hassan",
   "license": "ISC",
   "type": "commonjs",
   "bugs": {
